@@ -1,2 +1,5 @@
 # algocomps
-algorithmic compositions
+
+#### algorithmic compositions
+
+*by jupiter westbard*

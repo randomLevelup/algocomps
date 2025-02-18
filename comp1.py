@@ -5,11 +5,12 @@ by jupiter westbard
 
 """
 
-import random
+import random, argparse
+
 from music21 import environment, stream, scale, note, roman
-us = environment.UserSettings()
-us['musescoreDirectPNGPath'] = "C:\\Program Files\\MuseScore 3\\bin\\MuseScore3.exe"
-us['musicxmlPath'] = "C:\\Program Files\\MuseScore 3\\bin\\MuseScore3.exe"
+# us = environment.UserSettings()
+# us['musescoreDirectPNGPath'] = "C:\\Program Files\\MuseScore 3\\bin\\MuseScore3.exe"
+# us['musicxmlPath'] = "C:\\Program Files\\MuseScore 3\\bin\\MuseScore3.exe"
 
 def get_context(c_string, idx):
     """Returns tuple of (left, current, right) context characters at index idx in c_string."""
@@ -121,6 +122,40 @@ def generate_music_contextual(lsystem_string):
             current_note_idx, current_duration = stack.pop()
 
     return s1
+
+
+'''
+If you want to see the visualization of the plant, install jupyturtle,
+run the following code in a jupyter notebook, run __main__ until the
+draw_plant_contextual function is called.
+'''
+# from jupyturtle import *
+
+# def draw_plant_contextual(instructions, angle, length, length_decay=0.8):
+#     make_turtle(delay=0, width=400, height=400)
+#     set_heading(270)
+#     jp(200, 380)
+#     set_color("gray")
+#     hide()
+
+#     stack = []
+#     last_cmd = '1'
+#     for cmd in instructions:
+#         if cmd == 'F':
+#             fd(length)
+#         elif cmd in ['1', '0']:
+#             last_cmd = cmd
+#         elif cmd == '[':
+#             t = get_turtle()
+#             stack.append((t.position, t.heading, length))
+#             direction = 1 if last_cmd == '1' else -1
+#             set_heading(t.heading + (angle * direction))
+#             length *= length_decay
+#         elif cmd == ']':
+#             pos, head, length = stack.pop()
+#             jp(pos.x, pos.y)
+#             set_heading(head)
+    
 
 roman_to_degree = {
     'I': 1, 'II': 2, 'III': 3, 'IV': 4,
@@ -311,9 +346,12 @@ def apply_multi_term_rule(terms, rule):
                 rhs_term_root = terms[i].root if rule_rhs_term.root in ['x', 'w'] else rule_rhs_term.root
                 rhs_term_root, rootChange = apply_transformations(rhs_term_root, rule_rhs_term)
                 
+                termIsMinor = determine_property(rule_rhs_term, terms[i], 'isMinor')
+                termIsDom7 = determine_property(rule_rhs_term, terms[i], 'isDom7')
+                
                 new_term = tm(rhs_term_root,
-                             isMinor=terms[i].isMinor,
-                             isDom7=terms[i].isDom7,
+                             isMinor=termIsMinor,
+                             isDom7=termIsDom7, 
                              duration=terms[i+j].duration)
                 if rootChange:
                     new_term.rootHasChanged = True
@@ -404,7 +442,7 @@ plant_config = {
     'length_decay': 0.9
 }
 
-def __main__():
+def main(output_path=None, show_midi=False):
     # generate melody
     print("generating melody...")
     print(f"axiom: {plant_config['axiom']}")
@@ -417,13 +455,6 @@ def __main__():
         plant_config['iterations'] -= 1
 
     print(generated_string)    
-    '''
-    If you want to see the visual rendering of the plant, run the
-    jupyter notebook `comp1.ipynb`
-    '''
-    # draw_plant_contextual(generated_string, plant_config['angle'],
-    #                                         plant_config['length'],
-    #                                         plant_config['length_decay'])
 
     s1 = generate_music_contextual(generated_string)
 
@@ -446,8 +477,6 @@ def __main__():
     print (' | '.join([term.print() for term in axiom]))
 
     for i in range(chord_iterations):
-        # print(f"\n----- iteration {i+1} -----")
-
         pick_rule = int(chord_seed[i])
 
         if pick_rule == 3:
@@ -460,7 +489,6 @@ def __main__():
             print(f"rule {pick_rule}")
 
         axiom = apply_rule(axiom, chord_rules_library[pick_rule - 1])
-
         print(' | '.join([term.print() for term in axiom]))
 
     s2 = stream.Stream()
@@ -482,10 +510,22 @@ def __main__():
     s3.insert(0, s1)
     s3.insert(0, s2)
 
-    s3.write('midi', 'comp1.mid')
-    s3.show('midi')
+    # Write to specified output path or default
+    output_file = output_path if output_path else 'comp1.mid'
+    s3.write('midi', output_file)
+    
+    if show_midi:
+        s3.show('midi')
 
     return 0
+
+def __main__():
+    parser = argparse.ArgumentParser(description='Generate algorithmic music composition')
+    parser.add_argument('--showmidi', action='store_true', help='Show MIDI output')
+    parser.add_argument('output', nargs='?', help='Output MIDI file path', default=None)
+    
+    args = parser.parse_args()
+    return main(args.output, args.showmidi)
 
 if __name__ == '__main__':
     __main__()

@@ -1,5 +1,5 @@
 # algocomps
 
-#### algorithmic compositions
+### algorithmic compositions by me
 
-*by jupiter westbard*
+*visit the subdirectories for info about each composition*

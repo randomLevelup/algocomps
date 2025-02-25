@@ -33,11 +33,20 @@ def get_triads(midi: stream.Stream) -> stream.Stream:
         if len(measure.notes) == 0:
             out_stream.append(note.Rest(quarterLength=4.0))
             continue
-        tonic: note.Note = measure.notes[0]
+
         # build chord using scale degrees from key signature
+        tonic: note.Note = measure.notes[0]
+
+        # if current note is not in the key signature, use the closest note to
+        # build a triad
         chord_pitches = [tonic.pitch,
                          scale.nextPitch(tonic.pitch, 2),
                          scale.nextPitch(tonic.pitch, 4)]
+        
+        tonic_degree = scale.getScaleDegreeFromPitch(tonic.pitch)
+        if tonic_degree is not None:
+            chord_degrees = [(tonic_degree + k) % 7 for k in [0, 2, 4]]
+            chord_pitches = scale.pitchesFromScaleDegrees(chord_degrees)
         chord_pitches = [p.transpose(-12) for p in chord_pitches]
         out_stream.append(chord.Chord(chord_pitches, quarterLength=4.0))
 

@@ -10,9 +10,9 @@ for state in itertools.product(possible_chords, repeat=3):
     idx_0 = (((possible_chords.index(state[0]) // 2) + 3) * 2) % len(possible_chords)
     valid_degrees = [idx_0, idx_0 + 1]
     idx_1 = possible_chords.index(state[1])
+    target_chord = possible_chords[(idx_1 + 6) % len(possible_chords)]
     # if 2nd chord's index is 3 degrees higher
     if idx_1 in valid_degrees:
-        target_chord = possible_chords[(idx_1 + 6) % len(possible_chords)]
         target_weight = 0.95
         remaining_weight = 1 - target_weight
         for chord in possible_chords:
@@ -21,11 +21,14 @@ for state in itertools.product(possible_chords, repeat=3):
             else:
                 substitution_distribution[chord] = remaining_weight / (len(possible_chords) - 1)
     else:
-        default_prob = 0.85
-        other_prob = (1 - default_prob) / (len(possible_chords) - 1)
+        default_prob = 0.625
+        target_prob = 0.325 # chance of moving to the target chord anyway
+        other_prob = (1 - default_prob - target_prob) / (len(possible_chords) - 1)
         for chord in possible_chords:
             if chord == chord_default:
                 substitution_distribution[chord] = default_prob
+            elif chord == target_chord:
+                substitution_distribution[chord] = target_prob
             else:
                 substitution_distribution[chord] = other_prob
     substitution_table[state] = substitution_distribution

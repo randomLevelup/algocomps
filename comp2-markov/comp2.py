@@ -115,13 +115,13 @@ def substitute_chords(chord_stream: stream.Stream, markov_table: dict[tuple, dic
                                     p=list(substitution_distribution.values()))
             if random() < 0.5:
                 new_chord_symbol += '2'
-            if new_chord_symbol in ['IV', 'V', 'VI', 'v']:
+            elif random() < 0.5:
                 new_chord_symbol += '7'
+            elif random() < 0.2:
+                new_chord_symbol += 'sus4'
+            if '2' not in new_chord_symbol and 's' not in new_chord_symbol:
                 if random() < 0.2:
-                    new_chord_symbol += 'sus4'
-            if '2' not in new_chord_symbol:
-                if random() < 0.2:
-                    new_chord_symbol += '+6'
+                    new_chord_symbol += '6'
             out_chords.append(new_chord_symbol)
             new_chord = (chord.Chord(roman.RomanNumeral(new_chord_symbol, keysig),
                         quarterLength=4.0)).transpose(-12)

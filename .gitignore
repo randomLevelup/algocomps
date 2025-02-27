@@ -2,3 +2,4 @@ algocomp-env
 algocomps-live-project
 info
 __pycache__
+.gitignore

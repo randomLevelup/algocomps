@@ -12,7 +12,8 @@ max_iters      = 4000
 lr             = 1e-2 # learning rate
 wd             = 1e-2 # weight decay
 eval_iters     = 200
-eval_interval  = 100
+eval_interval  = 200
+num_embeddings = 32
 key_variations = 4
 
 vocab_size = 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
@@ -23,7 +24,8 @@ torch.manual_seed(69)
 
 # load data
 data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'
-pickle_path = 'comp2-markov/data.pkl'
+pickle_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data.pkl'
+generation_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/generations/gen.mid'
 
 def process_and_backup_data():
     input_sequences = preprocess_data(data_dir, variation_amt=key_variations)
@@ -57,7 +59,7 @@ print("\nTrain data:", train_data.shape)
 print("Val data:", val_data.shape)
 
 print("\nLoading model...")
-model = BigramModel(vocab_size).to(device)
+model = BigramModel(device, block_size, vocab_size, num_embeddings)
 opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
 print("Good.")
 
@@ -83,8 +85,7 @@ def estimate_loss():
     model.train()
     return out
 
-print("\nTraining...")
-progress_bar = tqdm(range(max_iters), desc="Training...")
+progress_bar = tqdm(range(max_iters), desc="Training...", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} {postfix}')
 
 for iter in range(max_iters):
 
@@ -110,5 +111,5 @@ gen_tokens = model.generate(
     idx=torch.zeros((1, 1), dtype=torch.long).to(device),
     max_length=100)[0].tolist()
 gen_stream = sequence_to_score(tokens_to_sequence(gen_tokens))
-gen_stream.write('midi', fp='comp2-markov/generations/gen.mid')
+gen_stream.write('midi', fp=generation_path)
 print("saved 'gen.mid'")

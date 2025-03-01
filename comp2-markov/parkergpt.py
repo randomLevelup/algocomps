@@ -7,12 +7,12 @@ from bigram import *
 
 # hyperparameters
 batch_size     = 32   # num batches to process in paralell
-block_size     = 16    # max context length for predictions
-max_iters      = 4000
-lr             = 1e-2 # learning rate
+block_size     = 8    # max context length for predictions
+max_iters      = 5000
+lr             = 1e-3 # learning rate
 wd             = 1e-2 # weight decay
 eval_iters     = 200
-eval_interval  = 200
+eval_interval  = 500
 num_embeddings = 32
 key_variations = 4
 

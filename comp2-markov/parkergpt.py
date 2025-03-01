@@ -7,11 +7,12 @@ from bigram import *
 
 # hyperparameters
 batch_size     = 32   # num batches to process in paralell
-block_size     = 8    # max context length for predictions
-max_iters      = 2000
+block_size     = 16    # max context length for predictions
+max_iters      = 4000
 lr             = 1e-2 # learning rate
 wd             = 1e-2 # weight decay
 eval_iters     = 200
+eval_interval  = 100
 key_variations = 4
 
 vocab_size = 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
@@ -21,18 +22,6 @@ device     = 'cuda' if torch.cuda.is_available() else 'cpu'
 torch.manual_seed(69)
 
 # load data
-
-# if pickle exists
-    # load pickle
-    # if numkeys == key_variations
-        # use pickle tokens
-    # else
-        # preprocess data
-        # store pickle
-# else
-    # preprocess data
-    # store pickle
-
 data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'
 pickle_path = 'comp2-markov/data.pkl'
 
@@ -67,6 +56,11 @@ train_data, val_data = full_data[:split_idx], full_data[split_idx:]
 print("\nTrain data:", train_data.shape)
 print("Val data:", val_data.shape)
 
+print("\nLoading model...")
+model = BigramModel(vocab_size).to(device)
+opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
+print("Good.")
+
 def get_batch(split):
     data = train_data if split == 'train' else val_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
@@ -75,28 +69,44 @@ def get_batch(split):
     x, y = x.to(device), y.to(device)
     return x, y
 
-print("\nLoading model...")
-m = BigramModel(vocab_size).to(device)
-opt = torch.optim.AdamW(m.parameters(), lr=lr, weight_decay=wd)
-print("Good.")
+@torch.no_grad()
+def estimate_loss():
+    out = {}
+    model.eval()
+    for split in ['train', 'val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    model.train()
+    return out
 
 print("\nTraining...")
-progress_bar = tqdm(range(1000), desc="Training...")
+progress_bar = tqdm(range(max_iters), desc="Training...")
 
-for _ in range(1000):
+for iter in range(max_iters):
+
+    # evaluate train & val sets occasionally
+    if iter % eval_interval == 0:
+        losses = estimate_loss()
+        progress_bar.set_postfix({"train": losses['train'].item(), "val": losses['val'].item()})
+    
     xb, yb = get_batch('train')
-    logits, loss = m(xb, yb)
+
+    # evaluate loss
+    logits, loss = model(xb, yb)
     opt.zero_grad(set_to_none=True)
     loss.backward()
     opt.step()
-    progress_bar.set_postfix(loss=loss.item())
-    progress_bar.update()
+    progress_bar.update(1)
 
 progress_bar.close()
 print("Done. Final loss:", loss.item())
 
 print("\nGenerating...")
-gen_tokens = m.generate(
+gen_tokens = model.generate(
     idx=torch.zeros((1, 1), dtype=torch.long).to(device),
     max_length=100)[0].tolist()
 gen_stream = sequence_to_score(tokens_to_sequence(gen_tokens))

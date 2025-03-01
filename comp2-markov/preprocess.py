@@ -1,6 +1,7 @@
 from music21 import *
 import os
 import random
+from tqdm import tqdm
 
 def load_score(filepath):
     return converter.parse(filepath)
@@ -49,7 +50,7 @@ def score_to_sequence(score, transpose_interval=0):
             
     return processed
 
-def sequence_to_score(sequence):
+def sequence_to_score(sequence: list[tuple[int, int]]) -> stream.Stream:
     """Convert a sequence of tuples (MIDI number, duration in 24ths) back to a music21 stream"""
     output_stream = stream.Stream()
     
@@ -73,10 +74,16 @@ def preprocess_data(data_dir, variation_amt=1):
             score = load_score(filepath)
             scores.append(score)
 
-    for i in range(variation_amt): # generate transposed variations
+    total_iterations = variation_amt * len(scores)
+    progress_bar = tqdm(total=total_iterations, desc="Processing training files")
+    
+    for i in range(variation_amt):  # generate transposed variations
         for score in scores:
             sequence = score_to_sequence(score, i)
             processed_sequences.append(sequence)
+            progress_bar.update(1)
+    
+    progress_bar.close()
 
     return processed_sequences
 
@@ -90,13 +97,13 @@ def make_tokens(sequence: list[tuple[int, int]]) -> list[int]:
     
     tokens = []
     for pitch, duration in sequence:
-        # Ensure pitch is within MIDI range (-1 to 127)
+        # Ensure pitch is within range (-1 to 127)
         if pitch < -1:
-            pitch = -1
+            pitch = -1 # too-low pitches are interpreted as rests
         elif pitch > 127:
             pitch = 127
             
-        # Ensure duration is within range (should be 1-24 after splitting)
+        # Ensure duration is within range (long notes are split to duration <= 24)
         duration = min(24, max(1, duration))
         
         # Convert to token: shift pitch by 2 to handle -1 for rests

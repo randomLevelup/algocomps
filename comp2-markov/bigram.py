@@ -130,7 +130,7 @@ class BigramModel(nn.Module):
         return logits, loss
     
     def generate(self, idx, max_length):
-        self.eval()
+        # self.eval()
 
         # idx is (B, T) tensor of indices in current context
         for _ in range(max_length):

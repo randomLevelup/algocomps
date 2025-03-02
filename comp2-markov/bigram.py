@@ -67,10 +67,12 @@ class Block(nn.Module):
         head_size = n_embed // n_heads
         self.sa_heads = MultiHeadAttention(device, n_embed, head_size, block_size, n_heads)
         self.ffwd = FeedForward(n_embed)
+        self.ln1 = nn.LayerNorm(n_embed) # layer normalization
+        self.ln2 = nn.LayerNorm(n_embed)
         
     def forward(self, x): # aggregate transformer block with residual connection
-        x = x + self.sa_heads(x)
-        x = x + self.ffwd(x)
+        x = x + self.sa_heads(self.ln1(x))
+        x = x + self.ffwd(self.ln2(x))
         return x
 
 
@@ -92,6 +94,7 @@ class BigramModel(nn.Module):
             Block(device, n_embed, block_size, n_heads=4),
             Block(device, n_embed, block_size, n_heads=4),
             Block(device, n_embed, block_size, n_heads=4),
+            nn.LayerNorm(n_embed)
         )
 
         self.output = nn.Linear(n_embed, vocab_size)

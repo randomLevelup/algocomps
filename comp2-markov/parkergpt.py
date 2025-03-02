@@ -8,11 +8,11 @@ from bigram import *
 # hyperparameters
 batch_size     = 32   # num batches to process in paralell
 block_size     = 16    # max context length for predictions
-max_iters      = 4000
-lr             = 1e-2 # learning rate
+max_iters      = 3000
+lr             = 1e-3 # learning rate
 wd             = 1e-2 # weight decay
 eval_iters     = 200
-eval_interval  = 500
+eval_interval  = 250
 num_embeddings = 32
 key_variations = 4
 
@@ -20,7 +20,7 @@ vocab_size = 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
 device     = 'cuda' if torch.cuda.is_available() else 'cpu'
 # ---------------
 
-torch.manual_seed(68)
+torch.manual_seed(100)
 
 # load data
 data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'

@@ -7,9 +7,9 @@ from bigram import *
 
 # hyperparameters
 batch_size     = 32   # num batches to process in paralell
-block_size     = 8    # max context length for predictions
-max_iters      = 5000
-lr             = 1e-3 # learning rate
+block_size     = 16    # max context length for predictions
+max_iters      = 4000
+lr             = 1e-2 # learning rate
 wd             = 1e-2 # weight decay
 eval_iters     = 200
 eval_interval  = 500
@@ -20,7 +20,7 @@ vocab_size = 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
 device     = 'cuda' if torch.cuda.is_available() else 'cpu'
 # ---------------
 
-torch.manual_seed(69)
+torch.manual_seed(68)
 
 # load data
 data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'
@@ -94,9 +94,8 @@ for iter in range(max_iters):
         losses = estimate_loss()
         progress_bar.set_postfix({"train": losses['train'].item(), "val": losses['val'].item()})
     
+    # train step
     xb, yb = get_batch('train')
-
-    # evaluate loss
     logits, loss = model(xb, yb)
     opt.zero_grad(set_to_none=True)
     loss.backward()

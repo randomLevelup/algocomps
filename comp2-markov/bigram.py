@@ -12,11 +12,8 @@ class Head(nn.Module):
         self.register_buffer('tril', torch.tril(torch.ones(block_size,
                                                            block_size,
                                                            device=device)))
-        
-        # self.to(device)
-        
+                
     def forward(self, x):
-
         # apply self-attention
         B,T,C = x.shape
         K = self.key(x)
@@ -35,19 +32,68 @@ class Head(nn.Module):
         return out
 
 
+class MultiHeadAttention(nn.Module):
+    """ Multi-head self-attention """
+    def __init__(self, device, n_embed, head_size, block_size, n_heads):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(device, n_embed, head_size, block_size)
+                                    for _ in range(n_heads)])
+        self.proj = nn.Linear(n_heads * head_size, n_embed) # residual connection
+        
+    def forward(self, x):
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        out = self.proj(out)
+        return out
+
+
+class FeedForward(nn.Module):
+    """ Simple linear layer and a ReLU nonlinearity """
+    def __init__(self, n_embed):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embed, 4 * n_embed), # feedforward layer
+            nn.ReLU(),                       # nonlinearity
+            nn.Linear(4 * n_embed, n_embed)  # residual connection
+        )
+        
+    def forward(self, x):
+        return self.net(x)
+
+
+class Block(nn.Module):
+    """ Transformer block """
+    def __init__(self, device, n_embed, block_size, n_heads=4):
+        super().__init__()
+        head_size = n_embed // n_heads
+        self.sa_heads = MultiHeadAttention(device, n_embed, head_size, block_size, n_heads)
+        self.ffwd = FeedForward(n_embed)
+        
+    def forward(self, x): # aggregate transformer block with residual connection
+        x = x + self.sa_heads(x)
+        x = x + self.ffwd(x)
+        return x
+
+
 class BigramModel(nn.Module):
     """ Simple bigram model """
     def __init__(self, device, block_size, vocab_size, n_embed):
         super().__init__()
         
         self.device = device
-        self.block_size = block_size  # store block_size for use in generate method
-        self.n_embed = n_embed
+        self.block_size = block_size # store block_size used in generation
         
         # create the embeddings and layers
         self.token_embeddings = nn.Embedding(vocab_size, n_embed)
         self.position_embeddings = nn.Embedding(block_size, n_embed)
-        self.sa_head = Head(device, n_embed, n_embed, block_size)
+
+        # 3 transformer blocks: each with 4 heads of 8-dimensional self-attention,
+        # each followed by a feed-forward layer and a nonlinearity (ReLU)
+        self.blocks = nn.Sequential(
+            Block(device, n_embed, block_size, n_heads=4),
+            Block(device, n_embed, block_size, n_heads=4),
+            Block(device, n_embed, block_size, n_heads=4),
+        )
+
         self.output = nn.Linear(n_embed, vocab_size)
         
         # move everything to the specified device
@@ -64,8 +110,8 @@ class BigramModel(nn.Module):
         # add positional embeddings
         x = tok_emb + pos_emb  # (B, T, C)
         
-        # apply self-attention head
-        x = self.sa_head(x)  # (B, T, C)
+        # apply transformer blocks
+        x = self.blocks(x)  # (B, T, C)
 
         # shape outputs (scores)
         logits = self.output(x)  # (B, T, vocab_size)

@@ -3,18 +3,18 @@ import pickle
 from tqdm import tqdm
 from music21 import *
 from preprocess import *
-from bigram import *
+from bigram import BigramModel
 
 # hyperparameters
-batch_size     = 32   # num batches to process in paralell
-block_size     = 16    # max context length for predictions
-max_iters      = 3000
-lr             = 1e-3 # learning rate
-wd             = 1e-2 # weight decay
-eval_iters     = 200
-eval_interval  = 250
-num_embeddings = 32
-key_variations = 4
+batch_size     = 16   # number of sequences to train on in parallel
+block_size     = 8    # max context length for predictions
+max_iters      = 2000
+lr             = 1e-2 # learning rate
+wd             = 2e-2 # weight decay
+eval_iters     = 10
+eval_interval  = 100
+num_embeddings = 16
+key_variations = 7
 
 vocab_size = 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
 device     = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -26,6 +26,7 @@ torch.manual_seed(100)
 data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'
 pickle_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data.pkl'
 generation_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/generations/gen.mid'
+model_save_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/parkergpt_trained.pt'
 
 def process_and_backup_data():
     input_sequences = preprocess_data(data_dir, variation_amt=key_variations)
@@ -104,6 +105,16 @@ for iter in range(max_iters):
 
 progress_bar.close()
 print("Done. Final loss:", loss.item())
+
+torch.save({
+    'model_state_dict': model.state_dict(),
+    'vocab_size': vocab_size,
+    'block_size': block_size,
+    'n_embed': num_embeddings,
+    'optimizer_state_dict': opt.state_dict(),
+    'loss': loss.item(),
+}, model_save_path)
+print(f"\nModel saved to {model_save_path}")
 
 print("\nGenerating...")
 gen_tokens = model.generate(

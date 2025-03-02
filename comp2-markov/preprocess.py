@@ -22,13 +22,17 @@ def split_long_notes(pitch, duration_24ths):
 
 def score_to_sequence(score, transpose_interval=0):
     """convert a music21 score to a sequence of (pitch, duration) tuples"""
-    processed = []
-    melody_part = score.parts[0]
-    melody_part = melody_part.transpose(transpose_interval)  # transpose for variation
+    if isinstance(score, list):
+        notes_and_rests = score
+    else:
+        melody_part = score.parts[0]
+        melody_part = melody_part.transpose(transpose_interval)  # transpose for variation
+        
+        # filter out chord symbols and get only notes and rests
+        notes_and_rests = [elem for elem in melody_part.flatten().notesAndRests 
+                        if isinstance(elem, (note.Note, note.Rest))]
     
-    # filter out chord symbols and get only notes and rests
-    notes_and_rests = [elem for elem in melody_part.flatten().notesAndRests 
-                       if isinstance(elem, (note.Note, note.Rest))]
+    processed = []
     
     for element in notes_and_rests:
         duration_24ths = int(element.duration.quarterLength * 24)

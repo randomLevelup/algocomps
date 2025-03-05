@@ -22,6 +22,10 @@ def main(args):
             print("A path to valid training data must be specified.")
             print("Rerun with '--train_data_dir [DIR]'")
             quit()
+        
+        model_save_dir: str = args.model_save_dir
+        if model_save_dir[-1] != "/":
+            model_save_dir += "/"
 
         hp: dict = get_default_hyperparams()
         if args.model_config is None:
@@ -49,7 +53,7 @@ def main(args):
         else:
             input_tokens = process_and_backup_data(args.train_data_dir, hp['key_variations'])
         
-        train_models(input_tokens, hp, args.model_save_dir)
+        train_models(input_tokens, hp, model_save_dir)
 
     else: # inference mode
         # parse midi file
@@ -80,11 +84,12 @@ def __main__():
                         help='[YAML] config for training hyperparameters')
     parser.add_argument('--train_data_dir', type=str, metavar='DIR', default=None,
                         help='[Path] to directory with musicxml files')
-    parser.add_argument('--model_save_dir', type=str, metavar='DIR', default=None,
+    parser.add_argument('--model_save_dir', type=str, metavar='DIR', default='./',
                         help='[Path] to directory where trained models will be saved')
 
     # inference args
-    parser.add_argument('input_path',help='Input MIDI file path')
+    parser.add_argument('--input_path', type=str, metavar='DIR', default=None,
+                        help="[File Path] to input '.mid' melody (for inference mode)")
     parser.add_argument('--chord_gen_depth', type=int, metavar='D',
                         help='[Integer] number of markov generation cycles to run', default=5)
 

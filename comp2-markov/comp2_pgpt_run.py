@@ -2,22 +2,10 @@ import torch
 import pickle
 from tqdm import tqdm
 from music21 import *
-from preprocess import *
-from bigram import BigramModel
+from comp2_preprocess import *
+from comp2_parkergpt import BigramModel
 
-# hyperparameters
-batch_size     = 16   # number of sequences to train on in parallel
-block_size     = 8    # max context length for predictions
-max_iters      = 3000
-lr             = 1e-2 # learning rate
-wd             = 1e-3 # weight decay
-eval_iters     = 50
-eval_interval  = 200
-num_embeddings = 32
-key_variations = 4
-
-vocab_size = 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
-device     = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # ---------------
 
 torch.manual_seed(100)
@@ -27,16 +15,6 @@ data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'
 pickle_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data.pkl'
 generation_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/generations/'
 model_save_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/trained_models/'
-
-def process_and_backup_data():
-    input_sequences = preprocess_data(data_dir, variation_amt=key_variations)
-    print("\nLoaded input data:", len(input_sequences))
-    flat_input = [item for sublist in input_sequences for item in sublist]
-    input_tokens = make_tokens(flat_input)
-    with open(pickle_path, 'wb') as f:
-        pickle.dump((key_variations, input_tokens), f)
-    return input_tokens
-
 
 if os.path.exists(pickle_path):
     with open(pickle_path, 'rb') as f:

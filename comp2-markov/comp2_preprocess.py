@@ -1,5 +1,5 @@
 from music21 import *
-import os
+import pickle, os
 from tqdm import tqdm
 
 def load_score(filepath):
@@ -68,12 +68,16 @@ def preprocess_data(data_dir, variation_amt=1):
     progress_bar = tqdm(desc="Loading training files", total=len(os.listdir(data_dir)))
 
     # collect all scores
-    for filename in os.listdir(data_dir):
-        if filename.endswith('.xml') or filename.endswith('.musicxml'):
-            filepath = os.path.join(data_dir, filename)
-            score = load_score(filepath)
-            scores.append(score)
-            progress_bar.update(1)
+    try:
+        for filename in os.listdir(data_dir):
+            if filename.endswith('.xml') or filename.endswith('.musicxml'):
+                filepath = os.path.join(data_dir, filename)
+                score = load_score(filepath)
+                scores.append(score)
+                progress_bar.update(1)
+    except:
+        print(f"Error: cannot load training data at '{data_dir}'")
+        quit()
     
     progress_bar.close()
 
@@ -120,3 +124,11 @@ def tokens_to_sequence(tokens: list[int]) -> list[tuple[int, int]]:
     
     return sequence
 
+def process_and_backup_data(data_dir, var_amt):
+    input_sequences = preprocess_data(data_dir, variation_amt=var_amt)
+    print("\nLoaded input data:", len(input_sequences))
+    flat_input = [item for sublist in input_sequences for item in sublist]
+    input_tokens = make_tokens(flat_input)
+    with open('./data.pkl', 'wb') as f:
+        pickle.dump((var_amt, input_tokens), f)
+    return input_tokens

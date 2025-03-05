@@ -15,7 +15,7 @@ from comp2_parkergpt import *
 
 def main(args):
     mode = 'training' if args.train_model else 'inference'
-    print(f"\nLoading ParkerGPT in {mode} mode...")
+    print(f"Loading ParkerGPT in {mode} mode...")
 
     if mode == 'training':
         if args.train_data_dir is None:

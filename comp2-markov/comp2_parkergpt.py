@@ -170,12 +170,12 @@ class BigramModel(nn.Module):
         
         return idx
 
-def get_batch(split, direction, data_splits, hp, device):
+def get_batch(which_split, direction, data_splits, hp, device):
     data = None
     if direction == 'forward':
-        data = data_splits['train_data_f'] if split == 'train' else data_splits['val_data_f']
+        data = data_splits['train_data_f'] if which_split == 'train' else data_splits['val_data_f']
     else:
-        data = data_splits['train_data_b'] if split == 'train' else data_splits['val_data_b']
+        data = data_splits['train_data_b'] if which_split == 'train' else data_splits['val_data_b']
 
     ix = torch.randint(len(data) - hp['block_size'], (hp['batch_size'],))
     x = torch.stack([data[i:i+hp['block_size']] for i in ix])
@@ -184,16 +184,16 @@ def get_batch(split, direction, data_splits, hp, device):
     return x, y
 
 @torch.no_grad()
-def estimate_loss(model, direction, eval_iters):
+def estimate_loss(model, direction, data_splits, hp, device):
     out = {}
     model.eval()
-    for split in ['train', 'val']:
-        losses = torch.zeros(eval_iters)
-        for k in range(eval_iters):
-            X, Y = get_batch(split, direction)
+    for which_split in ['train', 'val']:
+        losses = torch.zeros(int(hp['eval_iters']))
+        for k in range(int(hp['eval_iters'])):
+            X, Y = get_batch(which_split, direction, data_splits, hp, device)
             logits, loss = model(X, Y)
             losses[k] = loss.item()
-        out[split] = losses.mean()
+        out[which_split] = losses.mean()
     model.train()
     return out
 
@@ -216,11 +216,12 @@ def train_models(input_tokens, hp, model_save_dir):
 
     print(f"\nLoading model...")
     device = 'cuda' if torch.cuda.is_available() else 'gpu'
-    block_size     = hp['block_size']
-    vocab_size     = hp['vocab_size']
-    num_embeddings = hp['num_embeddings']
-    lr             = hp['lr']
-    wd             = hp['wd']
+    block_size     = int(hp['block_size'])
+    vocab_size     = int(hp['vocab_size'])
+    num_embeddings = int(hp['num_embeddings'])
+    lr             = float(hp['lr'])
+    wd             = float(hp['wd'])
+    max_iters      = int(hp['max_iters'])
 
     model_f = BigramModel(device, block_size, vocab_size, num_embeddings)
     opt_f = torch.optim.AdamW(model_f.parameters(), lr=lr, weight_decay=wd)
@@ -229,15 +230,15 @@ def train_models(input_tokens, hp, model_save_dir):
     print("Done.")
 
     for model, opt, direction in [(model_f, opt_f, 'forward'), (model_b, opt_b, 'backward')]:
-        progress_bar = tqdm(range(hp['max_iters']),
+        progress_bar = tqdm(range(max_iters),
                             desc=f"Training: {direction}",
                             bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} {postfix}')
 
-        for iter in range(hp['max_iters']):
+        for iter in range(max_iters):
 
             # evaluate train & val sets occasionally
-            if iter % hp['eval_interval'] == 0:
-                losses = estimate_loss(model, direction, hp['eval_iters'])
+            if iter % int(hp['eval_interval']) == 0:
+                losses = estimate_loss(model, direction, data_splits, hp, device)
                 progress_bar.set_postfix({"train": losses['train'].item(), "val": losses['val'].item()})
             
             # train step

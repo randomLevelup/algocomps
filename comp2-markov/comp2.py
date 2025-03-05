@@ -72,10 +72,9 @@ def main(args):
 
 def __main__():
     parser = argparse.ArgumentParser(description='Generate algorithmic music composition')
-    parser.add_argument('input_path',help='Input MIDI file path')
-    parser.add_argument('--chord_gen_depth', type=int, metavar='D',
-                        help='[Integer] number of markov generation cycles to run', default=5)
-    parser.add_argument('--train_model', action='store_true',
+
+    # training args
+    parser.add_argument('--train_model', action='store_true', default=False,
                         help="Use this to run the program in 'training' mode")
     parser.add_argument('--model_config', type=str, metavar='CFG', default=None,
                         help='[YAML] config for training hyperparameters')
@@ -83,6 +82,11 @@ def __main__():
                         help='[Path] to directory with musicxml files')
     parser.add_argument('--model_save_dir', type=str, metavar='DIR', default=None,
                         help='[Path] to directory where trained models will be saved')
+
+    # inference args
+    parser.add_argument('input_path',help='Input MIDI file path')
+    parser.add_argument('--chord_gen_depth', type=int, metavar='D',
+                        help='[Integer] number of markov generation cycles to run', default=5)
 
     args = parser.parse_args()
     return main(args)

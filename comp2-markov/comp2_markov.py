@@ -39,6 +39,7 @@ def get_triads(midi: stream.Stream) -> stream.Stream:
         tonic: note.Note = measure.notes[0]
         # build chord using scale degrees from key signature
         chord_pitches = [tonic.pitch,
+        
                          scale.nextPitch(tonic.pitch, 2),
                          scale.nextPitch(tonic.pitch, 4)]
         chord_pitches = [p.transpose(-12) for p in chord_pitches]

@@ -99,7 +99,7 @@ class BigramModel(nn.Module):
 
         self.output = nn.Linear(n_embed, vocab_size)
         
-        # move everything to the specified device
+        # move everything to the specified device !! important !!
         self.to(device)
 
     def forward(self, idx, targets=None):

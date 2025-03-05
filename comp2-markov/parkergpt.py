@@ -26,7 +26,7 @@ torch.manual_seed(100)
 data_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data'
 pickle_path = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/data.pkl'
 generation_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/generations/'
-model_save_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/'
+model_save_dir = '/mnt/c/Users/jwest/Desktop/algocomps/comp2-markov/trained_models/'
 
 def process_and_backup_data():
     input_sequences = preprocess_data(data_dir, variation_amt=key_variations)

@@ -45,19 +45,30 @@ def get_triads(input: stream.Stream) -> tuple[key.Key, stream.Stream]:
     out_stream: stream.Stream = stream.Stream()
     out_stream.append(keysig)
 
-    # make a whole-note chord for each measure in input
+    # add chords on beats 1 and 3.5 of each measure
+    position = 0
     for measure in measures:
         if len(measure.notes) == 0: # skip measures with no notes
             out_stream.append(note.Rest(quarterLength=4.0))
             continue
 
         # build chord using scale degrees from key signature
-        tonic: note.Note = measure.notes[0] # use the first note of the measure as tonic
-        chord_pitches = [tonic.pitch,
-                         scale.nextPitch(tonic.pitch, 2),
-                         scale.nextPitch(tonic.pitch, 4)]
-        chord_pitches = [p.transpose(-12) for p in chord_pitches]
-        out_stream.append(chord.Chord(chord_pitches, quarterLength=4.0))
+        t1: note.Note = measure.notes[0] # tonic for chord 1
+        c1_pitches = [t1.pitch,
+                      scale.nextPitch(t1.pitch, 2),
+                      scale.nextPitch(t1.pitch, 4)]
+        out_stream.append(chord.Chord(c1_pitches, quarterLength=2.5))
+        position += 2.5
+
+        t2 = input.getElementAtOrBefore(position + 1.5, [note.Note])
+        t2 = t1 if t2 is None else t2
+        c2_pitches = [t2.pitch,
+                      scale.nextPitch(t2.pitch, 2),
+                      scale.nextPitch(t2.pitch, 4)]
+        c2_pitches = [p.transpose(-12) for p in c2_pitches]
+        out_stream.append(chord.Chord(c2_pitches, quarterLength=1.5))
+        position += 1.5
+
 
     print([roman.romanNumeralFromChord(c, keysig).figure for c in
                out_stream.recurse().getElementsByClass('Chord')])
@@ -164,10 +175,25 @@ def substitute_chords(chord_stream: stream.Stream, markov_table: dict[tuple, dic
             
             # append chord to output stream
             out_chords.append(new_chord_symbol)
+            # alternate between 3.5 beat chords and 1.5 beat chords
+            ql = 2.5 if i % 2 == 0 else 1.5
             new_chord = (chord.Chord(roman.RomanNumeral(new_chord_symbol, keysig),
-                        quarterLength=4.0)).transpose(-12)
+                        quarterLength=ql, volume=volume.Volume(velocity=10)))
+            if i > 0:
+                new_chord = new_chord.transpose(-12) # all chords after the first go 1 octave down
             out_stream.append(new_chord)
             i += 1
+    
     print("\nnew chords:")
     print(out_chords)
     return out_stream
+
+def add_tail(chord_stream: stream.Stream) -> stream.Stream:
+    while chord_stream[-1].isRest:
+        chord_stream.pop(-1)
+    chord_stream.pop(-1) # remove last chord
+    # add a final tonic chord
+    tonic_chord = chord_stream.getElementAtOrBefore(1, [chord.Chord])
+    chord_stream.append(note.Rest(quarterLength=1.5))
+    chord_stream.append(chord.Chord(tonic_chord.pitches, quarterLength=4))
+    return chord_stream

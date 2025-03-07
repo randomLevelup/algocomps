@@ -182,9 +182,11 @@ def main(args):
         markov_table = generate_markov_table() # TODO: this is too convoluted
 
         print(f"\nApplying {args.chord_gen_depth} markov generation cycles...")
-        substituted_chords = substitute_chords(simple_triads, markov_table)
+        substituted_chords: stream.Stream = simple_triads
         for pos_i in range(args.chord_gen_depth):
             substituted_chords = substitute_chords(substituted_chords, markov_table)
+        
+        substituted_chords = add_tail(substituted_chords)
         
         model_save_dir = args.model_save_dir
         if model_save_dir is None:

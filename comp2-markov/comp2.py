@@ -234,7 +234,7 @@ def main(args):
                                    max_tokens=20,
                                    segment_length=sl,
                                    crossover_threshold=25)
-        
+                
         out_score = stream.Score()
         out_score.insert(0, res_melody)
         out_score.insert(0, substituted_chords.transpose(-12))

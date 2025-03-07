@@ -15,6 +15,7 @@ def parse_midi(filepath) -> stream.Stream:
         midi = converter.parse(filepath)
     except:
         print(f"Input path [{filepath}] is not a valid MIDI file.")
+        print("run `python3 comp2.py --help` for more info")
         quit();
 
     # if multipart score, return the first part

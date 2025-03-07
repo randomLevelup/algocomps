@@ -198,7 +198,7 @@ def estimate_loss(model, direction, data_splits, hp, device):
     return out
 
 
-def train_models(input_tokens, hp, model_save_dir):
+def train_models(input_tokens, device, hp, model_save_dir):
     full_data_forward = torch.tensor(input_tokens, dtype=torch.long)
     full_data_backward = torch.flip(full_data_forward, [0])
     print(f"Train data loaded. Full data shape:")
@@ -215,7 +215,6 @@ def train_models(input_tokens, hp, model_save_dir):
     print("Val data:", data_splits['val_data_f'].shape)
 
     print(f"\nLoading model...")
-    device = 'cuda' if torch.cuda.is_available() else 'gpu'
     block_size     = int(hp['block_size'])
     vocab_size     = int(hp['vocab_size'])
     num_embeddings = int(hp['num_embeddings'])

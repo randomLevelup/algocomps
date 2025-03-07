@@ -66,7 +66,7 @@ def get_triads(input: stream.Stream) -> tuple[key.Key, stream.Stream]:
         c2_pitches = [t2.pitch,
                       scale.nextPitch(t2.pitch, 2),
                       scale.nextPitch(t2.pitch, 4)]
-        c2_pitches = [p.transpose(-12) for p in c2_pitches]
+        # c2_pitches = [p.transpose(-12) for p in c2_pitches]
         out_stream.append(chord.Chord(c2_pitches, quarterLength=1.5))
         position += 1.5
 

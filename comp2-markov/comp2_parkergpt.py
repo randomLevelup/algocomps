@@ -261,4 +261,4 @@ def train_models(input_tokens, device, hp, model_save_dir):
             'optimizer_state_dict': opt.state_dict(),
             'loss': loss.item(),
         }, model_save_dir + model_filename)
-        print(f"\nModel saved to {model_save_dir + model_filename}")
+        print(f"Model saved to {model_save_dir + model_filename}\n")

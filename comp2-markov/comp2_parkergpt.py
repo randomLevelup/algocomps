@@ -11,26 +11,27 @@ from torch.nn import functional as F
 
 from tqdm import tqdm
 
-from comp2_preprocess import tokens_to_sequence, sequence_to_score
-
 # default_hyperparameters
 def get_default_hyperparams():
     return {
-        'batch_size'     : 16,   # number of sequences to train on in parallel
+        'batch_size'     : 64,   # number of sequences to train on in parallel
         'block_size'     : 8,    # max context length for predictions
-        'max_iters'      : 3000,
-        'lr'             : 1e-2, # learning rate
+        'num_layers'     : 6,    # number of transformer blocks
+        'num_heads'      : 6,    # number of self-attention heads per block
+        'max_iters'      : 4000, # number of training iterations
+        'lr'             : 5e-4, # learning rate
         'wd'             : 1e-3, # weight decay
-        'eval_iters'     : 50,
-        'eval_interval'  : 200,
-        'num_embeddings' : 32,
+        'dropout'        : 0.3,  # dropout rate
+        'eval_iters'     : 200,
+        'eval_interval'  : 500,
+        'num_embeddings' : 384,  # embedding dimension: num_heads * 64
         'key_variations' : 4,
         'vocab_size'     : 129 * 25 # (128 MIDI notes + 1 rest token) * 25 possible durations
     }
 
 class Head(nn.Module):
     """ Single self-attention head """
-    def __init__(self, device, n_embed, head_size, block_size, bias=False):
+    def __init__(self, device, n_embed, head_size, block_size, dropout, bias=False):
         super().__init__()
         self.key = nn.Linear(n_embed, head_size, bias=False)
         self.query = nn.Linear(n_embed, head_size, bias=False)
@@ -38,6 +39,7 @@ class Head(nn.Module):
         self.register_buffer('tril', torch.tril(torch.ones(block_size,
                                                            block_size,
                                                            device=device)))
+        self.dropout = nn.Dropout(dropout) # dropout layer
                 
     def forward(self, x):
         # apply self-attention
@@ -51,6 +53,7 @@ class Head(nn.Module):
         # matmul averaging trick to compute affinities
         wts = wts.masked_fill(self.tril[:T,:T] == 0, float('-inf')) # mask future tokens
         wts = F.softmax(wts, dim=-1)
+        wts = self.dropout(wts) # apply dropout to weights
 
         # aggregate affinities
         V = self.value(x) # (B, T, head_size)
@@ -60,26 +63,29 @@ class Head(nn.Module):
 
 class MultiHeadAttention(nn.Module):
     """ Multi-head self-attention """
-    def __init__(self, device, n_embed, head_size, block_size, n_heads):
+    def __init__(self, device, n_embed, head_size, block_size, n_heads, dropout):
         super().__init__()
-        self.heads = nn.ModuleList([Head(device, n_embed, head_size, block_size)
+        self.heads = nn.ModuleList([Head(device, n_embed, head_size, block_size, dropout)
                                     for _ in range(n_heads)])
         self.proj = nn.Linear(n_heads * head_size, n_embed) # residual connection
+        self.dropout = nn.Dropout(dropout) # dropout layer
         
     def forward(self, x):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.proj(out)
+        out = self.dropout(out)
         return out
 
 
 class FeedForward(nn.Module):
     """ Simple linear layer and a ReLU nonlinearity """
-    def __init__(self, n_embed):
+    def __init__(self, n_embed, dropout):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(n_embed, 4 * n_embed), # feedforward layer
             nn.ReLU(),                       # nonlinearity
-            nn.Linear(4 * n_embed, n_embed)  # residual connection
+            nn.Linear(4 * n_embed, n_embed), # residual connection
+            nn.Dropout(dropout)              # dropout layer
         )
         
     def forward(self, x):
@@ -88,11 +94,11 @@ class FeedForward(nn.Module):
 
 class Block(nn.Module):
     """ Transformer block """
-    def __init__(self, device, n_embed, block_size, n_heads=4):
+    def __init__(self, device, n_embed, block_size, n_heads, dropout):
         super().__init__()
         head_size = n_embed // n_heads
-        self.sa_heads = MultiHeadAttention(device, n_embed, head_size, block_size, n_heads)
-        self.ffwd = FeedForward(n_embed)
+        self.sa_heads = MultiHeadAttention(device, n_embed, head_size, block_size, n_heads, dropout)
+        self.ffwd = FeedForward(n_embed, dropout)
         self.ln1 = nn.LayerNorm(n_embed) # layer normalization
         self.ln2 = nn.LayerNorm(n_embed)
         
@@ -104,7 +110,7 @@ class Block(nn.Module):
 
 class BigramModel(nn.Module):
     """ Simple bigram model """
-    def __init__(self, device, block_size, vocab_size, n_embed):
+    def __init__(self, device, block_size, vocab_size, n_embed, n_layers, n_heads, dropout):
         super().__init__()
         
         self.device = device
@@ -114,15 +120,11 @@ class BigramModel(nn.Module):
         self.token_embeddings = nn.Embedding(vocab_size, n_embed)
         self.position_embeddings = nn.Embedding(block_size, n_embed)
 
-        # 3 transformer blocks: each with 4 heads of 8-dimensional self-attention,
-        # each followed by a feed-forward layer and a nonlinearity (ReLU)
-        self.blocks = nn.Sequential(
-            Block(device, n_embed, block_size, n_heads=4),
-            Block(device, n_embed, block_size, n_heads=4),
-            Block(device, n_embed, block_size, n_heads=4),
-            nn.LayerNorm(n_embed)
-        )
-
+        # multiple transformer blocks: each with several heads of self-attention,
+        self.blocks = nn.Sequential(*[
+            Block(device, n_embed, block_size, n_heads, dropout) for _ in range(n_layers)
+        ])
+        self.ln_f = nn.LayerNorm(n_embed) # final layer normalization
         self.output = nn.Linear(n_embed, vocab_size)
         
         # move everything to the specified device !! important !!
@@ -143,7 +145,7 @@ class BigramModel(nn.Module):
         x = self.blocks(x)  # (B, T, C)
 
         # shape outputs (scores)
-        logits = self.output(x)  # (B, T, vocab_size)
+        logits = self.output(self.ln_f(x))  # (B, T, vocab_size)
 
         if targets is None:
             loss = None
@@ -224,14 +226,17 @@ def train_models(input_tokens, device, hp, model_save_dir):
     print(f"\nLoading model...")
     block_size     = int(hp['block_size'])
     vocab_size     = int(hp['vocab_size'])
+    n_layers       = int(hp['num_layers'])
+    n_heads        = int(hp['num_heads'])
     num_embeddings = int(hp['num_embeddings'])
     lr             = float(hp['lr'])
     wd             = float(hp['wd'])
+    dropout        = float(hp['dropout'])
     max_iters      = int(hp['max_iters'])
 
-    model_f = BigramModel(device, block_size, vocab_size, num_embeddings)
+    model_f = BigramModel(device, block_size, vocab_size, num_embeddings, n_layers, n_heads, dropout)
     opt_f = torch.optim.AdamW(model_f.parameters(), lr=lr, weight_decay=wd)
-    model_b = BigramModel(device, block_size, vocab_size, num_embeddings)
+    model_b = BigramModel(device, block_size, vocab_size, num_embeddings, n_layers, n_heads, dropout)
     opt_b = torch.optim.AdamW(model_b.parameters(), lr=lr, weight_decay=wd)
     print("Done.")
 
@@ -265,6 +270,9 @@ def train_models(input_tokens, device, hp, model_save_dir):
             'vocab_size': vocab_size,
             'block_size': block_size,
             'n_embed': num_embeddings,
+            'n_layers': n_layers,
+            'n_heads': n_heads,
+            'dropout': dropout,
             'optimizer_state_dict': opt.state_dict(),
             'loss': loss.item(),
         }, model_save_dir + model_filename)

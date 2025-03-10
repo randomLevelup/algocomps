@@ -33,6 +33,10 @@ To install the dependencies, run the following:
 ```bash
 pip install -r requirements.txt
 ```
+To ensure that the program runs and see a summary of the arguments, run:
+```bash
+python comp2.py --help
+```
 
 ## Usage
 

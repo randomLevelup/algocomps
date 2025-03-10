@@ -222,16 +222,24 @@ def main(args):
             device=device,
             block_size=checkpoint_f['block_size'],
             vocab_size=checkpoint_f['vocab_size'],
-            n_embed=checkpoint_f['n_embed']
+            n_embed=checkpoint_f['n_embed'],
+            n_layers=checkpoint_f['n_layers'],
+            n_heads=checkpoint_f['n_heads'],
+            dropout=checkpoint_f['dropout'],
         )
         model_b = BigramModel(
             device=device,
             block_size=checkpoint_b['block_size'],
             vocab_size=checkpoint_b['vocab_size'],
-            n_embed=checkpoint_b['n_embed']
+            n_embed=checkpoint_b['n_embed'],
+            n_layers=checkpoint_b['n_layers'],
+            n_heads=checkpoint_b['n_heads'],
+            dropout=checkpoint_b['dropout'],
         )
         model_f.load_state_dict(checkpoint_b['model_state_dict'])
+        model_f.eval()
         model_b.load_state_dict(checkpoint_b['model_state_dict'])
+        model_b.eval()
         print("Good.")
 
         print("\nGenerating melody...")
@@ -276,7 +284,7 @@ def __main__():
     parser.add_argument('--input_path', type=str, metavar='FP', default=None,
                         help="[File Path] to input '.mid' melody (for inference mode)")
     parser.add_argument('--chord_gen_depth', type=int, metavar='D',
-                        help='[Integer] number of markov generation cycles to run', default=5)
+                        help='[Integer] number of markov generation cycles to run', default=2)
     parser.add_argument('--context_size', type=int, metavar='S', default=3,
                         help='[Integer] size of the context window for inference')
     parser.add_argument('--output_path', type=str, metavar='FP', default='./parkergpt_output.mid',

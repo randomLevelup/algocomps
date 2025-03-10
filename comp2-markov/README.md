@@ -7,6 +7,8 @@ ParkerGPT processes (monophonic) MIDI melodies using:
 
 The system outputs a MIDI file containing both the jazzified melody and accompanying jazz chord progressions.
 
+By default, the model is trained on Charlie Parker's omnibook, stored in musicxml form
+
 ## Table of Contents
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -99,6 +101,8 @@ The transformer model I built were heavily influenced by Andrej Karpathy's [Let'
 My model has 3 transfomer blocks, each with 4 heads of self-attention, interspersed with feedforward layers. It also contains residual connections which 'bypass' certain layers, along with layer normalization for training stability and faster convergence.
 
 The tokenizer I built maps any note or rest to a discrete integer. Each possible token denotes a pitch number (or a rest), and a duration. The input data is quantized into a grid of 24th's of a quarter note, and the longest-duration tokens are 1 beat long. As such, with 128 possible midi pitches and 24 possible durations, the domain of the token embedding space has size $128 \times 24 = 3072$.
+
+The data with which I trained the default model can be found in the `/data` directory, and is comprised of Charlie Parker's complete omnibook, which is [available online](https://homepages.loria.fr/evincent/omnibook/). I chose Parker because I felt that his rhythmic and harmonic choices, especially in improvisation, are perfectly balanced between predictable and innovative, two attributes that LLM-style models are fairly adept at replicating. Parker's improvised lines can be very long and intricate, though they feature minimal repetition, which I think helped prevent overfitting during training. The results, IMO, turned out pretty good.
 
 ##
 

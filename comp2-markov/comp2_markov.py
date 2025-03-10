@@ -1,6 +1,8 @@
 """
 
-comp2_markov.py
+File: comp2_markov.py
+
+Markov chain-related functions for ParkerGPT, including MIDI parsing and chord substitution.
 
 """
 
@@ -10,6 +12,9 @@ from numpy.random import choice
 from music21 import *
 
 def parse_midi(filepath) -> stream.Stream:
+    """
+    Parses a MIDI file and returns a monophonic stream of notes and rests.
+    """
     # load midi file
     try:
         midi = converter.parse(filepath)
@@ -37,6 +42,9 @@ def parse_midi(filepath) -> stream.Stream:
     return return_stream
 
 def get_triads(input: stream.Stream) -> tuple[key.Key, stream.Stream]:
+    """
+    Generates a stream of simple triads based on the input melody.
+    """
     # guess key based on input notes
     keysig: key.Key = input.analyze("key")
     scale = keysig.getScale()
@@ -77,6 +85,9 @@ def get_triads(input: stream.Stream) -> tuple[key.Key, stream.Stream]:
     return keysig, out_stream
 
 def generate_markov_table() -> dict[tuple, dict[str, float]]:
+    """
+    Generates a Markov table for chord substitutions.
+    """
     # possible chords are ALTERNATING major and minor voicings of all 7 triads
     possible_chords = ["I", "i", "II", "ii", "III", "iii", "IV", "iv", "V", "v", "VI", "vi", "VII", "vii"]
 
@@ -137,6 +148,9 @@ def generate_markov_table() -> dict[tuple, dict[str, float]]:
     return substitution_table
 
 def substitute_chords(chord_stream: stream.Stream, markov_table: dict[tuple, dict[str, float]]) -> stream.Stream:
+    """
+    Substitutes chords in a stream based on a Markov table.
+    """
     # convert chord stream to roman numeral representation
     keysig: key.Key = chord_stream[0]
     scale = keysig.getScale()
@@ -190,11 +204,14 @@ def substitute_chords(chord_stream: stream.Stream, markov_table: dict[tuple, dic
     return out_stream
 
 def add_tail(chord_stream: stream.Stream) -> stream.Stream:
+    """
+    Adds a tail to the chord stream, ending on the first chord.
+    """
     while chord_stream[-1].isRest:
         chord_stream.pop(-1)
     chord_stream.pop(-1) # remove last chord
-    # add a final tonic chord
-    tonic_chord = chord_stream.getElementAtOrBefore(1, [chord.Chord])
+    # final chord is the first chord in the stream, as a whole note
+    last_chord = chord_stream.getElementAtOrBefore(1, [chord.Chord])
     chord_stream.append(note.Rest(quarterLength=1.5))
-    chord_stream.append(chord.Chord(tonic_chord.pitches, quarterLength=4))
+    chord_stream.append(chord.Chord(last_chord.pitches, quarterLength=4))
     return chord_stream

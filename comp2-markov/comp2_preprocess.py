@@ -1,12 +1,20 @@
+"""
+
+File: comp2_preprocess.py
+
+Data preprocessing functions for ParkerGPT, including loading scores, converting to sequences, and tokenizing.
+
+"""
 from music21 import *
 import pickle, os
 from tqdm import tqdm
 
 def load_score(filepath):
+    """Loads a music21 score from a file."""
     return converter.parse(filepath)
 
 def split_long_notes(pitch, duration_24ths):
-    """split notes longer than a quarter note into smaller segments"""
+    """Splits notes longer than a quarter note into smaller segments."""
     segments = []
     remaining = duration_24ths
     
@@ -21,7 +29,7 @@ def split_long_notes(pitch, duration_24ths):
     return segments
 
 def score_to_sequence(score, transpose_interval=0):
-    """convert a music21 score to a sequence of (pitch, duration) tuples"""
+    """Converts a music21 score to a sequence of (pitch, duration) tuples."""
     if isinstance(score, list):
         notes_and_rests = score
     else:
@@ -48,7 +56,7 @@ def score_to_sequence(score, transpose_interval=0):
     return processed
 
 def sequence_to_score(sequence):
-    """convert a sequence of (pitch, duration) tuples back to a music21 stream"""
+    """Converts a sequence of (pitch, duration) tuples back to a music21 stream."""
     output_stream = stream.Stream()
     
     for midi_num, duration_24ths in sequence:
@@ -62,6 +70,7 @@ def sequence_to_score(sequence):
     return output_stream
 
 def preprocess_data(data_dir, variation_amt=1):
+    """Preprocesses music data from a directory, generating variations."""
     processed_sequences = []
     scores = []
 
@@ -96,7 +105,7 @@ def preprocess_data(data_dir, variation_amt=1):
     return processed_sequences
 
 def make_tokens(sequence: list[tuple[int, int]]) -> list[int]:
-    """convert (pitch, duration) tuples to integer tokens"""
+    """Converts (pitch, duration) tuples to integer tokens."""
     MAX_DURATION = 25  # allows durations 1-24 inclusive
     
     tokens = []
@@ -113,7 +122,7 @@ def make_tokens(sequence: list[tuple[int, int]]) -> list[int]:
     return tokens
 
 def tokens_to_sequence(tokens: list[int]) -> list[tuple[int, int]]:
-    """convert integer tokens back to (pitch, duration) tuples"""
+    """Converts integer tokens back to (pitch, duration) tuples."""
     MAX_DURATION = 25
     
     sequence = []
@@ -125,6 +134,7 @@ def tokens_to_sequence(tokens: list[int]) -> list[tuple[int, int]]:
     return sequence
 
 def process_and_backup_data(data_dir, var_amt):
+    """Processes data, creates tokens, and saves a backup."""
     input_sequences = preprocess_data(data_dir, variation_amt=var_amt)
     print("\nLoaded input data:", len(input_sequences))
     flat_input = [item for sublist in input_sequences for item in sublist]

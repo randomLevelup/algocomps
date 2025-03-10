@@ -1,3 +1,10 @@
+"""
+
+File: comp2_parkergpt.py
+
+Defines the ParkerGPT neural network model and training functions.
+
+"""
 import torch
 import torch.nn as nn
 from torch.nn import functional as F

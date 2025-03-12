@@ -3,13 +3,16 @@
 #
 
 hyperparameters:
-  batch_size: 16     # number of sequences to train on in parallel
+  batch_size: 64     # number of sequences to train on in parallel
   block_size: 8      # max context length for predictions
-  max_iters: 3000
-  lr: 1e-2           # learning rate
+  num_layers: 6      # number of transformer blocks
+  num_heads: 6       # number of self-attention heads per block
+  max_iters: 4000
+  lr: 5e-4           # learning rate
   wd: 1e-3           # weight decay
-  eval_iters: 50
-  eval_interval: 200
-  num_embeddings: 32
+  dropout: 0.3       # dropout rate
+  eval_iters: 200
+  eval_interval: 500
+  num_embeddings: 384 # embedding dimension: num_heads * 64
   key_variations: 4
   vocab_size: 3225   # (128 MIDI notes + 1 rest token) * 25 possible durations

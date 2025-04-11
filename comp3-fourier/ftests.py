@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sounddevice as sd
-from matplotlib.widgets import Button
 import matplotlib.animation as animation
+from collections import deque
 
 sample_rate = 44100
-duration = 1.0
+duration = 0.1
 time = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+buffer_queue = deque(maxlen=10)
+
 callback_idx = 0
 
 def signal(f):
@@ -28,17 +30,29 @@ def generate_chord(f, intervals):
         pitches.append(signal(f * it))
     return mux(pitches)
 
-def audio_callback(outdata, frames, _time_info, _status_flags):
-    global callback_idx
-    chunk = current_chord[callback_idx:callback_idx+frames]
-    if len(chunk) < frames:
-        remainder = frames - len(chunk)
-        chunk = np.concatenate((chunk, current_chord[:remainder]))
-        callback_idx = remainder
-    else:
-        callback_idx += frames
-        callback_idx %= len(current_chord)
-    outdata[:] = chunk.reshape(-1, 1)
+def find_zero_crossings(audio_data):
+    return np.where(np.diff(np.signbit(audio_data)))[0]
+
+def audio_callback(outdata, frames, time_info, status_flags):
+    if len(buffer_queue) == 0:
+        # If queue is empty, generate silence
+        outdata[:] = np.zeros((frames, 1))
+        return
+    
+    current_buffer = buffer_queue.popleft()
+    
+    # If buffer is smaller than required frames, pad with zeros
+    if len(current_buffer) < frames:
+        padding = np.zeros(frames - len(current_buffer))
+        current_buffer = np.concatenate((current_buffer, padding))
+    
+    # If buffer is larger than required frames, take only what we need
+    elif len(current_buffer) > frames:
+        leftover = current_buffer[frames:]
+        current_buffer = current_buffer[:frames]
+        buffer_queue.appendleft(leftover)
+        
+    outdata[:] = current_buffer.reshape(-1, 1)
 
 freq_base = 220
 
@@ -49,62 +63,73 @@ chords = {
     'VIDom7': [5/3, 25/12, 5/4, 3/2]
 }
 
-# Set up vertices for the chords in a square formation
+# chord vertex layout
 vertices = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
 chord_names = list(chords.keys())
-chord_weights = np.zeros(len(chord_names))
-current_chord = np.zeros_like(time)
+current_weights = np.ones(len(chord_names)) / len(chord_names)  # Initialize with equal weights
+last_chord = None
 
-# Function to update chord based on cursor position
+# update chord based on cursor position
 def update_chord(cursor_pos):
-    global current_chord
-    # Calculate distances to each vertex
+    global current_weights, last_chord
+    
     distances = np.array([np.linalg.norm(cursor_pos - vertex) for vertex in vertices])
     
-    # Convert distances to weights (closer = higher weight)
-    weights = 1.0 / (distances + 0.1)  # Adding 0.1 to avoid division by zero
-    weights = weights / np.sum(weights)  # Normalize weights
+    # calculate weights (closer = higher weight)
+    weights = 1.0 / (distances + 0.1)  # avoids division by zero
+    weights = weights / np.sum(weights)  # normalize
     
-    # Generate combined chord with smooth transition
+    # only update if weights have changed significantly
+    if last_chord is not None and np.allclose(weights, current_weights, rtol=0.01):
+        return weights
+    
+    current_weights = weights
+    
+    # generate chord segment
     new_chord = np.zeros_like(time)
     for i, name in enumerate(chord_names):
         new_chord += weights[i] * generate_chord(freq_base, chords[name])
     
-    # Normalize the new chord
-    new_chord = new_chord / np.max(np.abs(new_chord))
+    new_chord = new_chord / np.max(np.abs(new_chord) + 0.000001) # normalize
     
-    # Smoothly transition to avoid clicks (simple crossfade)
-    crossfade_samples = int(sample_rate * 0.05)  # 50ms crossfade
-    if crossfade_samples > 0:
-        fade_in = np.linspace(0, 1, crossfade_samples)
-        fade_out = np.linspace(1, 0, crossfade_samples)
+    # find zero crossing for smooth transition
+    if last_chord is not None:
+        crossings = find_zero_crossings(last_chord[-100:])
+        cross_idx = crossings[-1]
         
-        # Apply crossfade to beginning of the buffer
-        new_chord[:crossfade_samples] = (new_chord[:crossfade_samples] * fade_in + 
-                                        current_chord[:crossfade_samples] * fade_out)
+        # Keep the part before the zero crossing from the last buffer
+        keep_last = last_chord[:-100 + cross_idx + 1]
+        buffer_queue.append(keep_last)
+        
+        buffer_queue.append(new_chord)
+    else:
+        # initial buffer
+        buffer_queue.append(new_chord)
     
-    current_chord = new_chord
+    last_chord = new_chord
     return weights
 
-# Initialize with first chord
-current_chord = generate_chord(freq_base, chords[chord_names[0]])
+# initialize buffer
+initial_chord = generate_chord(freq_base, chords[chord_names[0]])
+buffer_queue.append(initial_chord)
+last_chord = initial_chord
 
-# Set up the interactive plot
+# setup interactive plot
 fig, ax = plt.subplots(figsize=(8, 8))
-scatter = ax.scatter(vertices[:, 0], vertices[:, 1], s=200, alpha=0.7)
+scatter = ax.scatter(vertices[:, 0], vertices[:, 1], s=120, alpha=0.7) 
 
-# Add labels for each chord
 for i, name in enumerate(chord_names):
-    ax.text(vertices[i, 0], vertices[i, 1], name, fontsize=12, 
-            ha='center', va='center', bbox=dict(facecolor='white', alpha=0.7))
-
-# Set plot limits and title
+    ax.text(vertices[i, 0], vertices[i, 1] + 0.07, name, fontsize=12,
+            ha='center', va='center')
+    
+ax.set_xticks([])
+ax.set_yticks([])
 ax.set_xlim(-0.2, 1.2)
 ax.set_ylim(-0.2, 1.2)
 ax.set_title('Move cursor to blend between chords')
-cursor_point, = ax.plot([0.5], [0.5], 'ro', markersize=10)  # Initialize with arrays
+cursor_point, = ax.plot([0.5], [0.5], 'ro', markersize=10)
 
-# Variables to track cursor position
+# track cursor position
 cursor_pos = np.array([0.5, 0.5])
 weights_text = ax.text(0.5, -0.1, "", transform=ax.transAxes, ha='center')
 
@@ -112,27 +137,35 @@ def update_cursor_position(event):
     global cursor_pos
     if event.inaxes == ax:
         cursor_pos = np.array([event.xdata, event.ydata])
-        cursor_point.set_data([cursor_pos[0]], [cursor_pos[1]])  # Pass arrays instead of scalars
+        cursor_point.set_data([cursor_pos[0]], [cursor_pos[1]])
         
-        # Update chord weights based on new cursor position
         weights = update_chord(cursor_pos)
         
-        # Update the weights text
         weight_str = " ".join([f"{chord_names[i]}: {w:.2f}" for i, w in enumerate(weights)])
         weights_text.set_text(weight_str)
         
         fig.canvas.draw_idle()
 
-# Connect the event handler
+# canvas event handler
 fig.canvas.mpl_connect('motion_notify_event', update_cursor_position)
 
-# Animation function to keep the plot responsive
+# animate plot
 def animate(i):
     return cursor_point, weights_text
 
-ani = animation.FuncAnimation(fig, animate, interval=100, blit=True)
+ani = animation.FuncAnimation(fig, animate, interval=100, blit=False)
 
-# Start audio stream
-with sd.OutputStream(samplerate=sample_rate, channels=1, callback=audio_callback):
+# periodically update the buffer even when cursor is not moving
+def maintain_buffer(event):
+    update_chord(cursor_pos)
+
+# maintain_buffer every 50ms to keep the buffer filled
+timer = fig.canvas.new_timer(interval=50)
+timer.add_callback(maintain_buffer, None)
+timer.start()
+
+# start audio stream
+with sd.OutputStream(samplerate=sample_rate, channels=1, callback=audio_callback, 
+                     blocksize=1024):
     plt.show()
 

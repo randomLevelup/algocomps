@@ -9,6 +9,16 @@ sample_rate = 44100
 freq_base = 220.0
 period = 0.1
 
+def signal(type, t, freq):
+    if type == 'sine':
+        return np.sin(2 * np.pi * freq * t / sample_rate)
+    elif type == 'saw':
+        return 2 * (freq * ((t / sample_rate) % 0.01) - 0.5)
+    elif type == 'tri':
+        return abs(2 * (freq * ((t / sample_rate) % 0.01) - 0.5)) - 1
+    else:
+        raise ValueError("Unknown signal type")
+
 def get_frame(freq_base: float, chords: dict[str, list[float]], weights: np.ndarray, period: float) -> np.ndarray:
     signals = []
     frame_length = int(sample_rate * period)
@@ -17,7 +27,8 @@ def get_frame(freq_base: float, chords: dict[str, list[float]], weights: np.ndar
         for it in intervals:
             freq = freq_base * it
             t = np.arange(frame_length)
-            buf += np.sin(2 * np.pi * freq * t / sample_rate)
+            # buf += signal('sine', t, freq)
+            buf += signal('sine', t, freq)
         signals.append(buf * weights[i])
     
     res = np.zeros_like(signals[0])

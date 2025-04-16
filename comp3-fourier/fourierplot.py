@@ -10,7 +10,7 @@ freq_base = 220.0
 period = 0.1
 num_harmonics = 64  # Number of harmonics to use in Fourier representation
 displayed_harmonics = 64  # Number of harmonics to track
-display_step = 4    # Show every other harmonic
+display_step = 1    # Show every other harmonic
 
 def signal(type, t, freq):
     if type == 'sine':
@@ -200,7 +200,7 @@ weights_changed = True
 stop_event = threading.Event()
 
 # Create figure with two subplots: amplitude meter on top, chord plot below
-fig = plt.figure(figsize=(12, 10))
+fig = plt.figure(figsize=(9, 7))
 gs = fig.add_gridspec(2, 1, height_ratios=[1, 4])
 
 # Top subplot for amplitude meter
@@ -221,9 +221,9 @@ ax_meter.set_ylim(0.8, 1.0)
 ax_meter.set_xlim(-0.5, num_bars-0.5)
 ax_meter.set_title(f"Harmonic Amplitudes (Base Freq: {freq_base:.1f}Hz)")
 ax_meter.set_xticks(x_positions)
-ax_meter.set_xticklabels([f"{i+1}" for i in displayed_indices])
+ax_meter.set_xticklabels([])
 ax_meter.set_ylabel("Amplitude (scaled)")
-ax_meter.set_xlabel("Harmonic Number")
+ax_meter.set_xlabel("Harmonic #")
 
 # Bottom subplot for chord plot
 ax_main = fig.add_subplot(gs[1])

@@ -22,7 +22,7 @@ def scale_amplitude(x, i, num_harmonics, center=0.55, bound=0.8, spread=5):
         return 0
     return (1 - bound) * (norm - 1) + 1
 
-# load and process image
+# load and process image  
 try:
     img = Image.open(image_path).convert('L')
     img = img.resize((grid_res, grid_res), Image.Resampling.LANCZOS)

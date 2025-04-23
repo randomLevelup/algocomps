@@ -102,7 +102,7 @@ cum_harmonics = []
 
 def audio_callback(outdata, frames, time_info, status):
     """ Callback function for live audio stream """
-    global audio_buffer, buffer_lock, current_harmonics
+    global audio_buffer, buffer_lock, current_harmonics, cum_harmonics
     with buffer_lock:
         # generate more audio if buffer is running low
         while len(audio_buffer) < frames:
@@ -120,6 +120,8 @@ def audio_callback(outdata, frames, time_info, status):
         audio_buffer = audio_buffer[frames:]
 
     outdata[:] = data_to_output.reshape(-1, 1)
+    # [DONT] update harmonics every frame
+    # cum_harmonics.append(current_harmonics)
 
 
 """ Matplot setup """
@@ -177,6 +179,7 @@ def update_cursor_position(event):
         if not np.allclose(new_pos, cursor_pos, atol=0.005):
             cursor_pos = new_pos
             current_harmonics = get_harmonics_from_image(cursor_pos[0], cursor_pos[1], circle_radius, num_harmonics)
+            # "record" current harmonics for later music generation
             cum_harmonics.append(current_harmonics)
 
 def animate(i):
